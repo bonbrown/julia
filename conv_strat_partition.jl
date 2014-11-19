@@ -1,4 +1,3 @@
-
 # conv_strat_partition.jl
 # to partition pixels in radar observations of hurricanes into convective, stratiform and weak echo.
 # Based on Appendix A of Didlake and Houze (MWR 2009), referred to here as DH; initially leaving tuned parameters to their 
@@ -13,8 +12,8 @@ using NetCDF
 # haversine function from http://rosettacode.org/wiki/Haversine_formula#Julia to calculate distance between points
 haversine(lat1,lon1,lat2,lon2) = 2 .* 6372.8 .* asin(sqrt(sind((lat2-lat1)./2).^2 + cosd(lat1).* cosd(lat2).* sind((lon2 - lon1)./2).^2))
 
-nc = "/Users/brbrown/julia_scripts/test.nc"
-#nc = "/Users/brbrown/data/arthur2014/radar/KLTX/output/20140703/20140703/ncf_20140703_210457.nc"
+#nc = "/Users/brbrown/julia_scripts/test.nc"
+nc = "/Users/brbrown/data/arthur2014/radar/KLTX/output/20140703/20140703/ncf_20140703_224512.nc"
 x = ncread(nc,"x0"); #km
 y = ncread(nc,"y0"); #km
 z = ncread(nc,"z0"); #km
@@ -30,6 +29,7 @@ b = 45    # arbitrary parameter
 Zti = 42  # convective threshold intensity (dBZ)
 Zwe = 20  # weak echo threshold (dBZ)
 
+print("Beginning background reflectivity calculation\n")
 
 # Zbg (background reflectivity; dBZ) is average of nonnegative and nonzero reflectivity 
 # within a radius of 11km around the grid point
@@ -45,7 +45,7 @@ for n = 1:s[1]
     end
 end
 
-print("background reflectivity calculation complete")
+print("background reflectivity calculation complete\n")
 
 # Now define the convective center criterion delta Zcc first introduced by Steiner et al 1995. The cosine function used
 # by DH was introduced in Yuter and Houze (1997). If Z exceeds Zbg by delta Zcc, it is a convective center.
@@ -54,12 +54,12 @@ dZcc = a*cos( (1/b) * (pi.*Zbg/2) );
 delZ = refl - Zbg;
 cc = find(delZ.>=dZcc);
 
-print("convective center calculation complete")
+print("convective center calculation complete\n")
 
 # define the convective radius R - this is the radius of points around a convective center which are also classified as convective
 R = zeros(Zbg);
 R[find(Zbg.<20)] = 0.5;
-R[find(Zbg.>=20)] = 0.5 + 3.5 * (Zbg[find(Zbg.>20)] - 20)./15;
+R[find(Zbg.>=20)] = 0.5 + 3.5 * (Zbg[find(Zbg.>=20)] - 20)./15;
 R[find(Zbg.>=35)] = 4.0;      # this overwrites any values that were defined immediately above but where Zbg was over 35 (cannot put two logical statements in find function)
 
 print("convective radius calculation complete\n")
@@ -88,5 +88,5 @@ print("classification into convective, weak echo, stratiform, and missing comple
 nccreate(nc,"CSMASK","x0",x,"y0",y)
 ncwrite(csmask,nc,"CSMASK")
 
-print("convective-stratiform partition written to new variable in netcdf file")
+print("convective-stratiform partition written to new variable in netcdf file\n")
 
