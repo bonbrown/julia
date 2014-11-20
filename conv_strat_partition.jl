@@ -89,65 +89,65 @@ print("Beginning background reflectivity calculation\n")
 
 for t = 1:ti
 #---------------------------- TIME LOOP ----------------------------------------------------#
-# Zbg (background reflectivity; dBZ) is average of nonnegative and nonzero reflectivity 
-# within a radius of 11km around the grid point
-refl = squeeze(reflec[:,:,t],3);
-Zbg = NaN*ones(refl);
-s = size(refl);
-for n = 1:s[1]
-    for m = 1:s[2]
-        dist = haversine(lat[n,m],lon[n,m],lat,lon);  # find great circle distance from each point
-        tmp = refl[find(dist.<=11.0)];                # find only points within 11km
-        Zbg[n,m] = mean(tmp[find(tmp.>0)]);           # take mean of points within radius only if reflectivity is nonnegative and nonzero
-    end
-end
+	# Zbg (background reflectivity; dBZ) is average of nonnegative and nonzero reflectivity 
+	# within a radius of 11km around the grid point
+	refl = squeeze(reflec[:,:,t],3);
+	Zbg = NaN*ones(refl);
+	s = size(refl);
+	for n = 1:s[1]
+	    for m = 1:s[2]
+    	    dist = haversine(lat[n,m],lon[n,m],lat,lon);  # find great circle distance from each point
+        	tmp = refl[find(dist.<=11.0)];                # find only points within 11km
+        	Zbg[n,m] = mean(tmp[find(tmp.>0)]);           # take mean of points within radius only if reflectivity is nonnegative and nonzero
+    	end
+	end
 
-print("Background reflectivity calculation complete\n")
+	print("Background reflectivity calculation complete\n")
 
-# Now define the convective center criterion delta Zcc first introduced by Steiner et al 1995. The cosine function used
-# by DH was introduced in Yuter and Houze (1997). If Z exceeds Zbg by delta Zcc, it is a convective center.
+	# Now define the convective center criterion delta Zcc first introduced by Steiner et al 1995. The cosine function used
+	# by DH was introduced in Yuter and Houze (1997). If Z exceeds Zbg by delta Zcc, it is a convective center.
 
-dZcc = a*cos( (1/b) * (pi.*Zbg/2) );
-delZ = refl - Zbg;
-cc = find(delZ.>=dZcc);
+	dZcc = a*cos( (1/b) * (pi.*Zbg/2) );
+	delZ = refl - Zbg;
+	cc = find(delZ.>=dZcc);
 
-print("Convective center calculation complete\n")
+	print("Convective center calculation complete\n")
 
-# define the convective radius R - this is the radius of points around a convective center which are also classified as convective
-R = zeros(Zbg);
-R[find(Zbg.<20)] = 0.5;
-R[find(Zbg.>=20)] = 0.5 + 3.5 * (Zbg[find(Zbg.>=20)] - 20)./15;
-R[find(Zbg.>=35)] = 4.0;      # this overwrites any values that were defined immediately above but where Zbg was over 35 (cannot put two logical statements in find function)
+	# define the convective radius R - this is the radius of points around a convective center which are also classified as convective
+	R = zeros(Zbg);
+	R[find(Zbg.<20)] = 0.5;
+	R[find(Zbg.>=20)] = 0.5 + 3.5 * (Zbg[find(Zbg.>=20)] - 20)./15;
+	R[find(Zbg.>=35)] = 4.0;      # this overwrites any values that were defined immediately above but where Zbg was over 35 (cannot put two logical statements in find function)
+	
+	print("Convective radius calculation complete\n")
+	
+	# Classify all convective centers, points within a convective radius, and points exceeding the convective intensity threshold 
+	# as convective points (1). Classify points beneath the Zwe threshold as weak echoes (2), and everything else as stratiform (0). 
+	# Missing data should remain missing (-9999)
+	
+	csmask = zeros(refl);
+	csmask[cc] = 1;
+	ri = R[cc];
+	for r = 1:length(ri)
+	    dist = haversine(lat[cc[r]],lon[cc[r]],lat,lon);  # find great circle distance from each point
+	    pts = find(dist.<=ri[r]);
+	    csmask[pts] = 1;
+	end
+	csmask[find(refl.>=Zti)] = 1;
+	csmask[find(refl.<Zwe)] = 2;
+	csmask[find(refl.<-900)] = refl[find(refl.<-900)]; #keep missing missing
+	
+	csmask_write[:,:,t] = csmask;
+	# the remaining points stay at a value of 0 (zero) indicating stratiform
 
-print("Convective radius calculation complete\n")
-
-# Classify all convective centers, points within a convective radius, and points exceeding the convective intensity threshold 
-# as convective points (1). Classify points beneath the Zwe threshold as weak echoes (2), and everything else as stratiform (0). 
-# Missing data should remain missing (-9999)
-
-csmask = zeros(refl);
-csmask[cc] = 1;
-ri = R[cc];
-for r = 1:length(ri)
-    dist = haversine(lat[cc[r]],lon[cc[r]],lat,lon);  # find great circle distance from each point
-    pts = find(dist.<=ri[r]);
-    csmask[pts] = 1;
-end
-csmask[find(refl.>=Zti)] = 1;
-csmask[find(refl.<Zwe)] = 2;
-csmask[find(refl.<-900)] = refl[find(refl.<-900)]; #keep missing missing
-
-csmask_write[t,:,:] = csmask;
-# the remaining points stay at a value of 0 (zero) indicating stratiform
-
-print("classification into convective, weak echo, stratiform, and missing complete\n")
-print("TIME ",string(t)," COMPLETE\n\n")
+	print("classification into convective, weak echo, stratiform, and missing complete\n")
+	print("TIME ",string(t)," COMPLETE\n\n")
 #--------------------------- END TIME LOOP ---------------------------------------------------------#
 end
 
 # write the partition mask (csmask) to a new variable in the gridded radar or WRF output file
 if wrf
-	nccreate(nc,"CSMASK","Time",1:ti,"south-north",1:s[2],"west-east",1:s[1]);
+	nccreate(nc,"CSMASK","west-east",1:s[1],"south-north",1:s[2],"Time",1:ti);
 	ncwrite(csmask_write,nc,"CSMASK")
 else	
 	nccreate(nc,"CSMASK","x0",x,"y0",y)
