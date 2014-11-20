@@ -85,12 +85,14 @@ end
 #--------------------------------------------------------------------#
 ncclose(nc)
 
-print("Beginning background reflectivity calculation\n")
+#preallocate final product
+csmask_write = zeros(refl);
 
 for t = 1:ti
 #---------------------------- TIME LOOP ----------------------------------------------------#
 	# Zbg (background reflectivity; dBZ) is average of nonnegative and nonzero reflectivity 
 	# within a radius of 11km around the grid point
+	print("Beginning background reflectivity calculation\n")
 	refl = squeeze(reflec[:,:,t],3);
 	Zbg = NaN*ones(refl);
 	s = size(refl);
