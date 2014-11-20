@@ -31,6 +31,7 @@ wrf = bool(1)
 
 #----------------------- WRF OUTPUT FIELDS ---------------------------#
 if wrf
+    print("doing WRF\n")
     REF = ncread(nc,"REFL_10CM");
     lat  = ncread(nc,"XLAT");
     lon = ncread(nc,"XLONG");
@@ -50,7 +51,7 @@ if wrf
         for ii = 1:s[1] 
             for jj = 1:s[2]
                 if ((z[ii,jj,1]< level) || (z[ii,jj,s[3]] > level))
-
+                    klev = 0;
                     # find the nearest height levels
                     for kk = 2:s[3]
                         if z[ii,jj,kk] > level
@@ -71,6 +72,7 @@ if wrf
     end
 #-------------------- GRIDDED RADAR FIELDS -------------------------#
 else
+    print("doing gridded radar\n")
     x = ncread(nc,"x0"); #km
     y = ncread(nc,"y0"); #km
     z = ncread(nc,"z0"); #km
@@ -79,14 +81,16 @@ else
     lon = ncread(nc,"lon0");
     
     reflec = squeeze(REF[:,:,find(z.==level),:],3);
-    s = size(refl);
+    s = size(reflec);
     ti = s[3]
 end
 #--------------------------------------------------------------------#
 ncclose(nc)
 
 #preallocate final product
-csmask_write = zeros(refl);
+csmask_write = zeros(reflec);
+size(reflec)
+
 
 for t = 1:ti
 #---------------------------- TIME LOOP ----------------------------------------------------#
@@ -98,7 +102,7 @@ for t = 1:ti
 	s = size(refl);
 	for n = 1:s[1]
 	    for m = 1:s[2]
-    	    dist = haversine(lat[n,m],lon[n,m],lat,lon);  # find great circle distance from each point
+    	    dist = haversine(lat[n,m,t],lon[n,m,t],lat[:,:,t],lon[:,:,t]);  # find great circle distance from each point
         	tmp = refl[find(dist.<=11.0)];                # find only points within 11km
         	Zbg[n,m] = mean(tmp[find(tmp.>0)]);           # take mean of points within radius only if reflectivity is nonnegative and nonzero
     	end
@@ -149,7 +153,7 @@ end
 
 # write the partition mask (csmask) to a new variable in the gridded radar or WRF output file
 if wrf
-	nccreate(nc,"CSMASK","west-east",1:s[1],"south-north",1:s[2],"Time",1:ti);
+	nccreate(nc,"CSMASK","west-east",0:s[1]-1,"south-north",0:s[2]-1,"Time",0:ti-1);
 	ncwrite(csmask_write,nc,"CSMASK")
 else	
 	nccreate(nc,"CSMASK","x0",x,"y0",y)
