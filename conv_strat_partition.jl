@@ -130,12 +130,14 @@ for t = 1:ti
 	# Classify all convective centers, points within a convective radius, and points exceeding the convective intensity threshold 
 	# as convective points (1). Classify points beneath the Zwe threshold as weak echoes (2), and everything else as stratiform (0). 
 	# Missing data should remain missing (-9999)
+	lat1 = squeeze(lat[:,:,t],3);
+	lon1 = squeeze(lon[:,:,t],3);
 	
 	csmask = zeros(refl);
 	csmask[cc] = 1;
 	ri = R[cc];
 	for r = 1:length(ri)
-	    dist = haversine(lat[cc[r]],lon[cc[r]],lat,lon);  # find great circle distance from each point
+	    dist = haversine(lat1[cc[r]],lon1[cc[r]],lat1,lon1);  # find great circle distance from each point
 	    pts = find(dist.<=ri[r]);
 	    csmask[pts] = 1;
 	end
